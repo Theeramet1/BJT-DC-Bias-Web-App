@@ -9,39 +9,33 @@
 ข้อมูลทดลองจากใบงาน: **VCC = 12 V, R1 = 100 kΩ, R2 = 22 kΩ,
 RC = 2.2 kΩ, RE = 1 kΩ, β = 100, VBE = 0.70 V**
 
-**ขั้นที่ 1 — แรงดันและความต้านทานสมมูลของตัวแบ่ง (Thevenin)**
+**ขั้นที่ 1 — แรงดันจากตัวแบ่ง (ละเวงการโหลดกระแสเบส)**
 
 ```
 VTH = 12 × 22 / (100 + 22) = 264 / 122 = 2.1639 V
 RTH = 100 × 22 / (100 + 22) = 2200 / 122 = 18.0328 kΩ
+VB  = VTH = 2.1639 V
 ```
 
-**ขั้นที่ 2 — กระแสเบส**
+**ขั้นที่ 2 — แรงดันและกระแสที่อีมิเตอร์**
 
 ```
-IB = (VTH − VBE) / (RTH + (β + 1) × RE)
-   = (2.1639 − 0.70) / (18 032.8 + 101 × 1000)
-   = 1.4639 / 119 032.8
-   = 12.2986 µA
+VE  = VB − VBE = 2.1639 − 0.70 = 1.4639 V
+IE  = VE ÷ RE  = 1.4639 V ÷ 1 kΩ = 1.4639 mA
 ```
 
-> RTH ต้องแปลงเป็น Ω ก่อนบวกกับ (β+1)RE ซึ่งอยู่ใน Ω แล้ว — ถ้าลืมแปลง
-> ผลจะผิดไปหลายเท่า นี่คือจุดที่ผิดบ่อยที่สุด
-
-**ขั้นที่ 3 — กระแส**
+**ขั้นที่ 3 — กระแสคอลเลกเตอร์และเบส**
 
 ```
-IC = β × IB       = 100 × 12.2986 µA = 1.2299 mA
-IE = (β + 1) × IB = 101 × 12.2986 µA = 1.2422 mA
+IC  = β ÷ (β + 1) × IE = 100 ÷ 101 × 1.4639 mA = 1.4494 mA
+IB  = IC ÷ β = 1.4494 mA ÷ 100 = 14.494 µA
 ```
 
-**ขั้นที่ 4 — แรงดัน**
+**ขั้นที่ 4 — แรงดันที่คอลเลกเตอร์และ VCE**
 
 ```
-VE  = IE × RE  = 1.2422 mA × 1 kΩ          = 1.2422 V
-VB  = VE + VBE = 1.2422 + 0.70             = 1.9422 V
-VC  = VCC − IC × RC = 12 − 1.2299 mA × 2.2 kΩ = 12 − 2.7057 = 9.2943 V
-VCE = VC − VE  = 9.2943 − 1.2422           = 8.0521 V
+VC  = VCC − IC × RC = 12 − 1.4494 mA × 2.2 kΩ = 12 − 3.1887 = 8.8113 V
+VCE = VC − VE = 8.8113 − 1.4639 = 7.3474 V
 ```
 
 **สรุปค่าอ้างอิง**
@@ -50,13 +44,13 @@ VCE = VC − VE  = 9.2943 − 1.2422           = 8.0521 V
 |---|---|---|
 | VTH | 2.1639 V | 2.164 V |
 | RTH | 18.0328 kΩ | 18.033 kΩ |
-| VB | 1.9422 V | 1.942 V |
-| VE | 1.2422 V | 1.242 V |
-| VC | 9.2943 V | 9.294 V |
-| VCE | 8.0521 V | 8.052 V |
-| IC | 1.2299 mA | 1.230 mA |
-| IE | 1.2422 mA | 1.242 mA |
-| IB | 12.2986 µA | 12.299 µA |
+| VB | 2.1639 V | 2.164 V |
+| VE | 1.4639 V | 1.464 V |
+| VC | 8.8113 V | 8.811 V |
+| VCE | 7.3474 V | 7.347 V |
+| IC | 1.4494 mA | 1.449 mA |
+| IE | 1.4639 mA | 1.464 mA |
+| IB | 14.494 µA | 14.494 µA |
 | Region | ACTIVE (VCE ≫ 0.7 V) | ACTIVE |
 
 ค่าตรงกันทุกหลักที่แสดง (ปัดเศษทศนิยม 3 ตำแหน่ง)
@@ -74,7 +68,7 @@ VCE = VC − VE  = 9.2943 − 1.2422           = 8.0521 V
 | `vcc = abc` | HTTP 200 + ข้อความ "ต้องเป็นตัวเลข" |
 | `rc = 2,2` (ลูกน้ำ) | HTTP 200 + ข้อความ "ต้องเป็นตัวเลข" |
 | `r1 = 1e400` | HTTP 200 + ข้อความ "ต้องเป็นตัวเลข" (ค่าอนันต์ถูกปฏิเสธ) |
-| `vcc = " 12 "` (มีช่องว่าง) | ยอมรับ — คำนวณได้ 1.942 V ตามปกติ |
+| `vcc = " 12 "` (มีช่องว่าง) | ยอมรับ — คำนวณได้ 2.164 V ตามปกติ |
 | ส่งฟอร์มว่าง | HTTP 200 + ข้อความ "กรุณากรอกค่านี้" ครบทั้ง 7 ช่อง |
 | `rc = oops, r2 = 33` | HTTP 200 + error ที่ RC และช่อง R2 ยังแสดง `33` |
 
@@ -85,8 +79,8 @@ VCE = VC − VE  = 9.2943 − 1.2422           = 8.0521 V
 | กรณี | อินพุต | ผล |
 |---|---|---|
 | **Cutoff** | R2 = 5 kΩ → VTH = 12×5/105 = **0.5714 V** ≤ VBE 0.70 V | Region `CUTOFF`, IB=IC=IE=0, VE=0, VB=VTH=0.571 V, VC=VCE=12 V + คำเตือนว่าแบบจำลองใช้ไม่ได้ |
-| **Saturation** | RC = 15 kΩ → VC = 12 − 1.2299m×15k = −6.448 V, VCE = **−7.690 V** < 0.3 V | Region `SATURATION` + แบนเนอร์เตือนว่า VCE ต่ำกว่า 0.3 V และค่าไม่น่าเชื่อถือ |
-| **ใกล้จุดอิ่มตัว** | RC = 8.34 kΩ → VCE = **0.501 V** (ระหว่าง 0.3–0.7 V) | Region `ACTIVE` + คำเตือนว่าอยู่ใกล้ช่วงอิ่มตัว |
+| **Saturation** | RC = 15 kΩ → VC = 12 − 1.4494m×15k = −9.741 V, VCE = **−11.205 V** < 0.3 V | Region `SATURATION` + แบนเนอร์เตือนว่า VCE ต่ำกว่า 0.3 V และค่าไม่น่าเชื่อถือ |
+| **ใกล้จุดอิ่มตัว** | RC = 6.92 kΩ → VCE = **0.506 V** (ระหว่าง 0.3–0.7 V) | Region `ACTIVE` + คำเตือนว่าอยู่ใกล้ช่วงอิ่มตัว |
 
 หมายเหตุ: ในกรณี Saturation โปรแกรม **ไม่แก้สมการซ้ำ** ตามที่ใบงานกำหนด
 แต่รายงานตัวเลขตามสมการพร้อมเตือนว่าสมมติฐาน Forward-Active ถูกทำลาย
@@ -104,8 +98,8 @@ test_cutoff_reports_zero_currents_and_divider_base (test_dc_bias.OperatingPointT
 test_large_collector_resistor_is_reported_as_saturation (test_dc_bias.OperatingPointTests...) ... ok
 test_point_just_above_saturation_stays_active_with_caution (test_dc_bias.OperatingPointTests...) ... ok
 test_rejects_non_physical_parameters (test_dc_bias.OperatingPointTests...) ... ok
-test_sample_values_match_hand_calculation (test_dc_bias.OperatingPointTests...) ... ok
-test_very_high_beta_approaches_the_emitter_stabilised_limit (test_dc_bias.OperatingPointTests...) ... ok
+test_sample_values_match_simplified_divider_method (test_dc_bias.OperatingPointTests...) ... ok
+test_very_high_beta_approaches_ie_limit (test_dc_bias.OperatingPointTests...) ... ok
 test_numbers_come_from_python_not_the_template (test_web.CalculateTests...) ... ok
 test_sample_input_renders_the_computed_operating_point (test_web.CalculateTests...) ... ok
 test_form_is_prefilled_with_the_sample_values (test_web.IndexTests...) ... ok
@@ -132,10 +126,10 @@ OK
 **เทสต์ที่กันการโกงเป็นพิเศษ**
 
 - `test_numbers_come_from_python_not_the_template` — เปลี่ยนอินพุตเป็น
-  VCC=15, R1=47 แล้วยืนยันว่า `1.942` **หายไป** จากหน้า ถ้ามีใครฝังตัวเลข
+  VCC=15, R1=47 แล้วยืนยันว่า `2.164` **หายไป** จากหน้า ถ้ามีใครฝังตัวเลข
   ไว้ใน template เทสต์นี้จะจับได้ทันที
-- `test_sample_values_match_hand_calculation` — assert กระแสเป็น **แอมแปร์**
-  (`1.2298e-3`) ไม่ใช่ mA ถ้าโค้ดคืนหน่วยผิดจะต่างกัน 1000 เท่าและ fail
+- `test_sample_values_match_simplified_divider_method` — assert กระแสเป็น **แอมแปร์**
+  (`1.4494e-3`) ไม่ใช่ mA ถ้าโค้ดคืนหน่วยผิดจะต่างกัน 1000 เท่าและ fail
 
 ---
 
@@ -144,7 +138,7 @@ OK
 | การทดสอบ | ผล |
 |---|---|
 | `GET /` | HTTP 200 เห็นฟอร์ม 7 ช่อง พร้อมค่าตัวอย่าง |
-| `POST /calculate` ค่าตัวอย่าง | HTTP 200 แสดง VB 1.942 V, VC 9.294 V, VCE 8.052 V, ACTIVE |
+| `POST /calculate` ค่าตัวอย่าง | HTTP 200 แสดง VB 2.164 V, VC 8.811 V, VCE 7.347 V, ACTIVE |
 | `r1 = 0` | HTTP 200 หน้าไม่ล้ม มี error ใต้ช่อง R1 |
 | `rc = 2,2` | HTTP 200 มี error "ต้องเป็นตัวเลข" |
 | ส่งฟอร์มว่าง | HTTP 200 มี error ครบ 7 ช่อง |
