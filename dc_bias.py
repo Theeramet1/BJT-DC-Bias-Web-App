@@ -105,11 +105,13 @@ def operating_point(
             warnings=(_CUTOFF_WARNING,),
         )
 
-    ib = (vth - vbe) / (rth_k * KOHM + (beta + 1.0) * re_k * KOHM)
-    ic = beta * ib
-    ie = (beta + 1.0) * ib
-    ve = ie * re_k * KOHM
-    vb = ve + vbe
+    # Simplified voltage-divider bias: assume the divider is stiff enough
+    # that base current does not load it, so VB = VTH directly.
+    vb = vth
+    ve = vb - vbe
+    ie = ve / (re_k * KOHM)
+    ic = (beta / (beta + 1.0)) * ie
+    ib = ic / beta
     vc = vcc - ic * rc_k * KOHM
     vce = vc - ve
 
