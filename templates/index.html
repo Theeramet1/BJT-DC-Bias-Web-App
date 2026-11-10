@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BJT DC Bias Calculator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<main class="card">
+  <h1>เครื่องคำนวณ DC Bias — BJT Common Emitter</h1>
+  <p class="subtitle">วงจร Voltage-Divider Bias · แบบจำลอง Forward-Active (β และ V<sub>BE</sub> คงที่)</p>
+
+  <form method="post" action="{{ url_for('calculate') }}" novalidate>
+    <div class="fields">
+      {% for name, label in labels.items() %}
+      <div class="field">
+        <label for="{{ name }}">{{ label }}</label>
+        <input id="{{ name }}" name="{{ name }}" type="text" inputmode="decimal"
+               autocomplete="off" value="{{ form.get(name, '') }}">
+        {% if errors.get(name) %}<p class="field-error">{{ errors[name] }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% if form_error %}<p class="form-error">{{ form_error }}</p>{% endif %}
+    <button type="submit">Calculate DC Bias</button>
+  </form>
+
+  {% if result %}
+  <section class="results">
+    <h2>DC Operating Point</h2>
+
+    {% if result.warnings %}
+    <ul class="warnings" role="alert">
+      {% for warning in result.warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    <dl class="readings">
+      <div><dt>VTH</dt><dd>{{ '%.3f'|format(result.vth) }} V</dd></div>
+      <div><dt>RTH</dt><dd>{{ '%.3f'|format(result.rth) }} kΩ</dd></div>
+      <div><dt>VB</dt><dd>{{ '%.3f'|format(result.vb) }} V</dd></div>
+      <div><dt>VE</dt><dd>{{ '%.3f'|format(result.ve) }} V</dd></div>
+      <div><dt>VC</dt><dd>{{ '%.3f'|format(result.vc) }} V</dd></div>
+      <div><dt>VCE</dt><dd>{{ '%.3f'|format(result.vce) }} V</dd></div>
+      <div><dt>IC</dt><dd>{{ '%.3f'|format(result.ic * 1000) }} mA</dd></div>
+      <div><dt>IE</dt><dd>{{ '%.3f'|format(result.ie * 1000) }} mA</dd></div>
+      <div><dt>IB</dt><dd>{{ '%.3f'|format(result.ib * 1e6) }} µA</dd></div>
+    </dl>
+    <p class="region">Operating Region: <strong>{{ result.region }}</strong></p>
+  </section>
+  {% endif %}
+</main>
+</body>
+</html>
