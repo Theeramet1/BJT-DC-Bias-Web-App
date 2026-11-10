@@ -15,11 +15,11 @@ Forward-Active Approximation โดยถือว่า **β คงที่** 
 ```
 VTH = VCC × R2 / (R1 + R2)
 RTH = R1 × R2 / (R1 + R2)
-IB  = (VTH − VBE) / (RTH + (β + 1) × RE)
-IC  = β × IB
-IE  = (β + 1) × IB
-VE  = IE × RE
-VB  = VE + VBE
+VB  = VTH                    (ละเวงการโหลดกระแสเบส)
+VE  = VB − VBE
+IE  = VE ÷ RE
+IC  = β ÷ (β + 1) × IE
+IB  = IC ÷ β
 VC  = VCC − IC × RC
 VCE = VC − VE
 ```
