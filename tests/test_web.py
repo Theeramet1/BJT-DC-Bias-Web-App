@@ -32,15 +32,16 @@ class CalculateTests(unittest.TestCase):
         response = self.client.post("/calculate", data=self.valid)
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
-        self.assertIn("1.942", body)
-        self.assertIn("9.294", body)
-        self.assertIn("8.052", body)
+        # Simplified divider: VB = VTH ≈ 2.164 V, VC ≈ 8.811 V, VCE ≈ 7.347 V
+        self.assertIn("2.164", body)
+        self.assertIn("8.811", body)
+        self.assertIn("7.347", body)
         self.assertIn("ACTIVE", body)
 
     def test_numbers_come_from_python_not_the_template(self):
         changed = dict(self.valid, vcc="15", r1="47")
         body = self.client.post("/calculate", data=changed).get_data(as_text=True)
-        self.assertNotIn("1.942", body)
+        self.assertNotIn("2.164", body)
         self.assertIn("VCE", body)
 
 
@@ -68,7 +69,7 @@ class ValidationTests(unittest.TestCase):
 
     def test_whitespace_around_a_number_is_accepted(self):
         body = self.post(vcc=" 12 ").get_data(as_text=True)
-        self.assertIn("1.942", body)
+        self.assertIn("2.164", body)
 
     def test_comma_decimal_is_rejected_with_a_readable_error(self):
         body = self.post(rc="2,2").get_data(as_text=True)
