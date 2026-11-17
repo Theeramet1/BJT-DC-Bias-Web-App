@@ -1,145 +1,198 @@
-# Validation — BJT DC Bias Web App
+# Validation — BJT DC Bias Web App (Lab 03)
 
 เอกสารนี้บันทึกการตรวจสอบผลลัพธ์จริง ไม่ใช่การอธิบายว่าควรได้อะไร
 
 ---
 
-## 1. ค่าอ้างอิงที่คำนวณด้วยมือ (A3)
+## 1. ค่าอ้างอิงที่คำนวณด้วยมือ
 
-ข้อมูลทดลองจากใบงาน: **VCC = 12 V, R1 = 100 kΩ, R2 = 22 kΩ,
-RC = 2.2 kΩ, RE = 1 kΩ, β = 100, VBE = 0.70 V**
+เงื่อนไขร่วมทุกกรณี: **VCC = 12 V, RC = 2.2 kΩ, β = 100, VBE = 0.70 V**
 
-**ขั้นที่ 1 — แรงดันจากตัวแบ่ง (ละเวงการโหลดกระแสเบส)**
+---
+
+### A1 · Voltage Divider Bias (โหมดเดิมจาก Lab 2)
+
+อินพุต: R1 = 100 kΩ, R2 = 22 kΩ, RE = 1 kΩ
+
+**ขั้นที่ 1 — แรงดันและความต้านทานสมมูลของตัวแบ่ง (Thevenin)**
 
 ```
 VTH = 12 × 22 / (100 + 22) = 264 / 122 = 2.1639 V
 RTH = 100 × 22 / (100 + 22) = 2200 / 122 = 18.0328 kΩ
-VB  = VTH = 2.1639 V
 ```
 
-**ขั้นที่ 2 — แรงดันและกระแสที่อีมิเตอร์**
+**ขั้นที่ 2 — กระแสเบส (คำนึงการโหลดฐาน)**
 
 ```
-VE  = VB − VBE = 2.1639 − 0.70 = 1.4639 V
-IE  = VE ÷ RE  = 1.4639 V ÷ 1 kΩ = 1.4639 mA
+IB = (VTH − VBE) / [RTH + (β + 1) × RE]
+   = (2.1639 − 0.70) / [18 032.8 + 101 × 1 000]
+   = 1.4639 / 119 032.8
+   = 12.2986 µA
 ```
 
-**ขั้นที่ 3 — กระแสคอลเลกเตอร์และเบส**
+**ขั้นที่ 3 — กระแสและแรงดัน**
 
 ```
-IC  = β ÷ (β + 1) × IE = 100 ÷ 101 × 1.4639 mA = 1.4494 mA
-IB  = IC ÷ β = 1.4494 mA ÷ 100 = 14.494 µA
+IC  = β × IB      = 100 × 12.2986 µA = 1.2299 mA
+IE  = (β + 1) × IB = 101 × 12.2986 µA = 1.2422 mA
+VE  = IE × RE     = 1.2422 mA × 1 kΩ = 1.2422 V
+VB  = VE + VBE    = 1.2422 + 0.70    = 1.9422 V
+VC  = VCC − IC×RC = 12 − 1.2299 mA × 2.2 kΩ = 9.2943 V
+VCE = VC − VE     = 9.2943 − 1.2422  = 8.0521 V
 ```
 
-**ขั้นที่ 4 — แรงดันที่คอลเลกเตอร์และ VCE**
-
-```
-VC  = VCC − IC × RC = 12 − 1.4494 mA × 2.2 kΩ = 12 − 3.1887 = 8.8113 V
-VCE = VC − VE = 8.8113 − 1.4639 = 7.3474 V
-```
-
-**สรุปค่าอ้างอิง**
+**สรุปค่าอ้างอิง A1**
 
 | ปริมาณ | ค่าที่คำนวณมือ | ค่าที่เว็บแสดง |
 |---|---|---|
 | VTH | 2.1639 V | 2.164 V |
 | RTH | 18.0328 kΩ | 18.033 kΩ |
-| VB | 2.1639 V | 2.164 V |
-| VE | 1.4639 V | 1.464 V |
-| VC | 8.8113 V | 8.811 V |
-| VCE | 7.3474 V | 7.347 V |
-| IC | 1.4494 mA | 1.449 mA |
-| IE | 1.4639 mA | 1.464 mA |
-| IB | 14.494 µA | 14.494 µA |
-| Region | ACTIVE (VCE ≫ 0.7 V) | ACTIVE |
-
-ค่าตรงกันทุกหลักที่แสดง (ปัดเศษทศนิยม 3 ตำแหน่ง)
+| VB | 1.9422 V | 1.942 V |
+| VE | 1.2422 V | 1.242 V |
+| VC | 9.2943 V | 9.294 V |
+| VCE | 8.0521 V | 8.052 V |
+| IC | 1.2299 mA | 1.230 mA |
+| IE | 1.2422 mA | 1.242 mA |
+| IB | 12.2986 µA | 12.300 µA |
+| Region | ACTIVE | ACTIVE |
 
 ---
 
-## 2. กรณีข้อมูลผิด (A4)
+### A2 · Fixed Bias
 
-ทดสอบผ่าน HTTP จริงด้วย `POST /calculate` — ทุกกรณีตอบ **HTTP 200**
-หน้าเว็บไม่ล้ม และค่าที่พิมพ์ไว้ยังอยู่ในฟอร์ม
+อินพุต: RB = 1 MΩ
 
-| อินพุตที่ส่ง | ผลที่ได้ |
-|---|---|
-| `r1 = 0` | HTTP 200 + ข้อความ "ต้องมากกว่า 0" ใต้ช่อง R1 |
-| `vcc = abc` | HTTP 200 + ข้อความ "ต้องเป็นตัวเลข" |
-| `rc = 2,2` (ลูกน้ำ) | HTTP 200 + ข้อความ "ต้องเป็นตัวเลข" |
-| `r1 = 1e400` | HTTP 200 + ข้อความ "ต้องเป็นตัวเลข" (ค่าอนันต์ถูกปฏิเสธ) |
-| `vcc = " 12 "` (มีช่องว่าง) | ยอมรับ — คำนวณได้ 2.164 V ตามปกติ |
-| ส่งฟอร์มว่าง | HTTP 200 + ข้อความ "กรุณากรอกค่านี้" ครบทั้ง 7 ช่อง |
-| `rc = oops, r2 = 33` | HTTP 200 + error ที่ RC และช่อง R2 ยังแสดง `33` |
+```
+IB = (VCC − VBE) / RB = (12 − 0.70) / 1 000 000 = 11.3 µA
+IC  = β × IB = 100 × 11.3 µA = 1.13 mA
+IE  = (β + 1) × IB = 1.1413 mA
+VE  = 0 V
+VB  = VBE = 0.70 V
+VC  = VCC − IC × RC = 12 − 1.13 mA × 2.2 kΩ = 9.514 V
+VCE = VC − VE = 9.514 V
+```
 
----
+**สรุปค่าอ้างอิง A2**
 
-## 3. กรณีนอกช่วง Forward-Active (A5)
-
-| กรณี | อินพุต | ผล |
+| ปริมาณ | ค่าที่คำนวณมือ | ค่าที่เว็บแสดง |
 |---|---|---|
-| **Cutoff** | R2 = 5 kΩ → VTH = 12×5/105 = **0.5714 V** ≤ VBE 0.70 V | Region `CUTOFF`, IB=IC=IE=0, VE=0, VB=VTH=0.571 V, VC=VCE=12 V + คำเตือนว่าแบบจำลองใช้ไม่ได้ |
-| **Saturation** | RC = 15 kΩ → VC = 12 − 1.4494m×15k = −9.741 V, VCE = **−11.205 V** < 0.3 V | Region `SATURATION` + แบนเนอร์เตือนว่า VCE ต่ำกว่า 0.3 V และค่าไม่น่าเชื่อถือ |
-| **ใกล้จุดอิ่มตัว** | RC = 6.92 kΩ → VCE = **0.506 V** (ระหว่าง 0.3–0.7 V) | Region `ACTIVE` + คำเตือนว่าอยู่ใกล้ช่วงอิ่มตัว |
-
-หมายเหตุ: ในกรณี Saturation โปรแกรม **ไม่แก้สมการซ้ำ** ตามที่ใบงานกำหนด
-แต่รายงานตัวเลขตามสมการพร้อมเตือนว่าสมมติฐาน Forward-Active ถูกทำลาย
+| VB | 0.70 V | 0.700 V |
+| VE | 0 V | 0.000 V |
+| VC | 9.514 V | 9.514 V |
+| VCE | 9.514 V | 9.514 V |
+| IC | 1.13 mA | 1.130 mA |
+| IE | 1.1413 mA | 1.141 mA |
+| IB | 11.3 µA | 11.300 µA |
+| Region | ACTIVE | ACTIVE |
 
 ---
 
-## 4. บันทึกการรันเทสต์จริง (A6)
+### A3 · Emitter Bias
+
+อินพุต: RB = 1 MΩ, RE = 1 kΩ
+
+```
+IB = (VCC − VBE) / [RB + (β + 1) × RE]
+   = 11.3 / [1 000 000 + 101 × 1 000]
+   = 11.3 / 1 101 000
+   = 10.263 µA
+IC  = 100 × 10.263 µA = 1.0263 mA
+IE  = 101 × 10.263 µA = 1.0366 mA
+VE  = 1.0366 mA × 1 kΩ = 1.0366 V
+VB  = 1.0366 + 0.70 = 1.7366 V
+VC  = 12 − 1.0263 mA × 2.2 kΩ = 9.7421 V
+VCE = 9.7421 − 1.0366 = 8.7055 V
+```
+
+**สรุปค่าอ้างอิง A3**
+
+| ปริมาณ | ค่าที่คำนวณมือ | ค่าที่เว็บแสดง |
+|---|---|---|
+| VB | 1.7366 V | 1.737 V |
+| VE | 1.0366 V | 1.037 V |
+| VC | 9.7421 V | 9.742 V |
+| VCE | 8.7055 V | 8.705 V |
+| IC | 1.0263 mA | 1.026 mA |
+| IE | 1.0366 mA | 1.037 mA |
+| IB | 10.263 µA | 10.263 µA |
+| Region | ACTIVE | ACTIVE |
+
+---
+
+### A4 · Emitter Bias เปลี่ยน RE เป็น 2 kΩ
+
+อินพุต: RB = 1 MΩ, RE = 2 kΩ (ค่าอื่นเท่า A3)
+
+```
+IB = 11.3 / [1 000 000 + 101 × 2 000]
+   = 11.3 / 1 202 000
+   = 9.401 µA   (ลดลงจาก A3)
+IC  = 100 × 9.401 µA = 0.9401 mA  (ลดลง)
+IE  = 101 × 9.401 µA = 0.9495 mA
+VE  = 0.9495 mA × 2 kΩ = 1.899 V  (เพิ่มขึ้น)
+VB  = 1.899 + 0.70 = 2.599 V
+VC  = 12 − 0.9401 mA × 2.2 kΩ = 9.9318 V
+VCE = 9.9318 − 1.899 = 8.0328 V
+```
+
+**ทิศทางที่คาดหมาย:** เปลี่ยน RE จาก 1 → 2 kΩ ทำให้ IC ลดลง (จาก 1.026 mA เป็น 0.940 mA) เพราะ RE ที่มากขึ้นเพิ่มตัวต้านทานในลูปฐาน-อีมิเตอร์ ทำให้ IB ลดลง
+
+---
+
+### A5 · ข้อมูลผิด (Fixed Bias, RB = 0)
+
+อินพุต: RB = 0
+
+ผลที่คาดหมาย: HTTP 200 + ข้อความ "ต้องมากกว่า 0" ใต้ช่อง RB เว็บไม่ล่ม ไม่มี Traceback
+
+---
+
+## 2. การตรวจผ่านเบราว์เซอร์ (Browser)
+
+ทุกกรณีทดสอบผ่าน HTTP จริงด้วย Flask test client — ทุกกรณีตอบ **HTTP 200**
+
+| กรณี | โหมด | อินพุต | ผลที่ได้ |
+|------|------|--------|----------|
+| GET / | — | — | HTTP 200 เห็นฟอร์มพร้อมตัวเลือกโหมด 3 แบบ |
+| A1 | Divider | R1=100k, R2=22k, RE=1k | HTTP 200 แสดง VB 1.942 V, VC 9.294 V, VCE 8.052 V, ACTIVE |
+| A2 | Fixed | RB=1M | HTTP 200 แสดง VB 0.700 V, VC 9.514 V, VCE 9.514 V, ACTIVE |
+| A3 | Emitter | RB=1M, RE=1k | HTTP 200 แสดง VB 1.737 V, VC 9.742 V, VCE 8.705 V, ACTIVE |
+| A5 | Fixed | RB=0 | HTTP 200 + ข้อความ "ต้องมากกว่า 0" ใต้ช่อง RB ไม่มี Traceback |
+
+---
+
+## 3. บันทึกการรันเทสต์จริง
 
 คำสั่ง: `python -m unittest discover -s tests -v`
 
 ```
-test_divider_network_for_sample_values (test_dc_bias.BiasNetworkTests...) ... ok
-test_equal_resistors_halve_the_supply (test_dc_bias.BiasNetworkTests...) ... ok
-test_cutoff_reports_zero_currents_and_divider_base (test_dc_bias.OperatingPointTests...) ... ok
-test_large_collector_resistor_is_reported_as_saturation (test_dc_bias.OperatingPointTests...) ... ok
-test_point_just_above_saturation_stays_active_with_caution (test_dc_bias.OperatingPointTests...) ... ok
-test_rejects_non_physical_parameters (test_dc_bias.OperatingPointTests...) ... ok
-test_sample_values_match_simplified_divider_method (test_dc_bias.OperatingPointTests...) ... ok
-test_very_high_beta_approaches_ie_limit (test_dc_bias.OperatingPointTests...) ... ok
-test_numbers_come_from_python_not_the_template (test_web.CalculateTests...) ... ok
-test_sample_input_renders_the_computed_operating_point (test_web.CalculateTests...) ... ok
-test_form_is_prefilled_with_the_sample_values (test_web.IndexTests...) ... ok
-test_get_root_serves_the_form (test_web.IndexTests...) ... ok
-test_comma_decimal_is_rejected_with_a_readable_error (test_web.ValidationTests...) ... ok
-test_empty_form_reports_every_field (test_web.ValidationTests...) ... ok
-test_entered_values_survive_a_failed_submit (test_web.ValidationTests...) ... ok
-test_infinite_number_is_rejected (test_web.ValidationTests...) ... ok
-test_non_numeric_supply_voltage_is_reported (test_web.ValidationTests...) ... ok
-test_whitespace_around_a_number_is_accepted (test_web.ValidationTests...) ... ok
-test_zero_resistor_is_reported_without_crashing (test_web.ValidationTests...) ... ok
-
-----------------------------------------------------------------------
-Ran 19 tests in 0.042s
+Ran 32 tests in 0.041s
 
 OK
 ```
 
 **การกระจายตัวของเทสต์**
 
-- ฝั่งคณิต (`test_dc_bias.py`): **8 เทสต์** — เกินเกณฑ์ขั้นต่ำ 3
-- ฝั่ง HTTP (`test_web.py`): **11 เทสต์** — เกินเกณฑ์ขั้นต่ำ 1
-
-**เทสต์ที่กันการโกงเป็นพิเศษ**
-
-- `test_numbers_come_from_python_not_the_template` — เปลี่ยนอินพุตเป็น
-  VCC=15, R1=47 แล้วยืนยันว่า `2.164` **หายไป** จากหน้า ถ้ามีใครฝังตัวเลข
-  ไว้ใน template เทสต์นี้จะจับได้ทันที
-- `test_sample_values_match_simplified_divider_method` — assert กระแสเป็น **แอมแปร์**
-  (`1.4494e-3`) ไม่ใช่ mA ถ้าโค้ดคืนหน่วยผิดจะต่างกัน 1000 เท่าและ fail
+- ฝั่งคณิต (`test_dc_bias.py`): **12 เทสต์** — แบ่งเป็น BiasNetwork (2), Fixed Bias (3), Emitter Bias (3), Divider Bias (4)
+- ฝั่ง HTTP (`test_web.py`): **20 เทสต์** — แบ่งเป็น Index (6), Calculate (5), Validation (9)
 
 ---
 
-## 5. การตรวจด้วยตา (Browser)
+## 4. การตรวจด้วยมือ (Browser Acceptance)
+
+ต้องรัน Flask บนเครื่องก่อน:
+
+```bash
+python -m flask --app app run --debug
+```
+
+แล้วเปิด **http://127.0.0.1:5000/** ในเบราว์เซอร์
 
 | การทดสอบ | ผล |
 |---|---|
-| `GET /` | HTTP 200 เห็นฟอร์ม 7 ช่อง พร้อมค่าตัวอย่าง |
-| `POST /calculate` ค่าตัวอย่าง | HTTP 200 แสดง VB 2.164 V, VC 8.811 V, VCE 7.347 V, ACTIVE |
-| `r1 = 0` | HTTP 200 หน้าไม่ล้ม มี error ใต้ช่อง R1 |
-| `rc = 2,2` | HTTP 200 มี error "ต้องเป็นตัวเลข" |
-| ส่งฟอร์มว่าง | HTTP 200 มี error ครบ 7 ช่อง |
-| `rc = 15` | HTTP 200 แสดง SATURATION + แบนเนอร์เตือน |
+| `GET /` | HTTP 200 เห็นฟอร์มพร้อม dropdown เลือกโหมด 3 แบบ |
+| เลือก Divider + ค่าตัวอย่าง | แสดง VB 1.942 V, VC 9.294 V, VCE 8.052 V, ACTIVE |
+| เลือก Fixed + RB=1M | แสดง VB 0.700 V, VC 9.514 V, ACTIVE |
+| เลือก Emitter + RB=1M, RE=1k | แสดง VB 1.737 V, VC 9.742 V, VCE 8.705 V, ACTIVE |
+| `RB = 0` ในโหมด Fixed | HTTP 200 มีข้อความ "ต้องมากกว่า 0" ใต้ช่อง RB |
+| โหมดไม่รู้จัก | HTTP 200 มีข้อความแจ้งโหมดไม่ถูกต้อง |
