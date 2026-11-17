@@ -3,17 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BJT DC Bias Calculator</title>
+  <title>BJT DC Bias Calculator — Lab 03</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <main class="card">
   <h1>เครื่องคำนวณ DC Bias — BJT Common Emitter</h1>
-  <p class="subtitle">วงจร Voltage-Divider Bias · แบบจำลอง Forward-Active (β และ V<sub>BE</sub> คงที่)</p>
+  <p class="subtitle">เลือกวงจรไบอัส · แบบจำลอง Forward-Active (β และ V<sub>BE</sub> คงที่)</p>
 
   <form method="post" action="{{ url_for('calculate') }}" novalidate>
+    <div class="field">
+      <label for="mode">วงจรไบอัส</label>
+      <select id="mode" name="mode" onchange="this.form.submit()">
+        {% for mode_key in modes %}
+        <option value="{{ mode_key }}" {% if mode_key == selected_mode %}selected{% endif %}>
+          {{ mode_labels[mode_key] }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if errors.get("mode") %}<p class="field-error">{{ errors["mode"] }}</p>{% endif %}
+    </div>
+
     <div class="fields">
-      {% for name, label in labels.items() %}
+      {% for name in modes[selected_mode] %}
+      {% set label = labels[name] %}
       <div class="field">
         <label for="{{ name }}">{{ label }}</label>
         <input id="{{ name }}" name="{{ name }}" type="text" inputmode="decimal"
@@ -22,13 +35,14 @@
       </div>
       {% endfor %}
     </div>
+
     {% if form_error %}<p class="form-error">{{ form_error }}</p>{% endif %}
     <button type="submit">Calculate DC Bias</button>
   </form>
 
   {% if result %}
   <section class="results">
-    <h2>DC Operating Point</h2>
+    <h2>DC Operating Point — {{ mode_labels[selected_mode] }}</h2>
 
     {% if result.warnings %}
     <ul class="warnings" role="alert">
@@ -37,8 +51,10 @@
     {% endif %}
 
     <dl class="readings">
+      {% if result.vth is not none %}
       <div><dt>VTH</dt><dd>{{ '%.3f'|format(result.vth) }} V</dd></div>
       <div><dt>RTH</dt><dd>{{ '%.3f'|format(result.rth) }} kΩ</dd></div>
+      {% endif %}
       <div><dt>VB</dt><dd>{{ '%.3f'|format(result.vb) }} V</dd></div>
       <div><dt>VE</dt><dd>{{ '%.3f'|format(result.ve) }} V</dd></div>
       <div><dt>VC</dt><dd>{{ '%.3f'|format(result.vc) }} V</dd></div>
@@ -51,5 +67,21 @@
   </section>
   {% endif %}
 </main>
+
+<script>
+  // Keep the correct mode selected after a page reload with errors
+  document.addEventListener('DOMContentLoaded', function () {
+    var select = document.getElementById('mode');
+    if (select) {
+      var stored = sessionStorage.getItem('bias_mode');
+      if (stored) {
+        select.value = stored;
+      }
+      select.addEventListener('change', function () {
+        sessionStorage.setItem('bias_mode', select.value);
+      });
+    }
+  });
+</script>
 </body>
 </html>
