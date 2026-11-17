@@ -13,11 +13,13 @@ import dc_bias
 app = Flask(__name__)
 
 DEFAULTS = {
+    "mode": "divider",
     "vcc": "12",
     "r1": "100",
     "r2": "22",
     "rc": "2.2",
     "re": "1",
+    "rb": "1000",
     "beta": "100",
     "vbe": "0.70",
 }
@@ -28,11 +30,25 @@ FIELD_LABELS = {
     "r2": "R2 [kΩ]",
     "rc": "RC [kΩ]",
     "re": "RE [kΩ]",
+    "rb": "RB [kΩ]",
     "beta": "β (hFE)",
     "vbe": "VBE [V]",
 }
 
-POSITIVE_FIELDS = ("vcc", "r1", "r2", "rc", "re", "beta")
+MODE_LABELS = {
+    "divider": "Voltage Divider Bias",
+    "fixed": "Fixed Bias",
+    "emitter": "Emitter Bias",
+}
+
+# Fields required for each mode (all in kΩ except vcc, beta, vbe)
+MODE_FIELDS = {
+    "divider": ("vcc", "r1", "r2", "rc", "re", "beta", "vbe"),
+    "fixed": ("vcc", "rb", "rc", "beta", "vbe"),
+    "emitter": ("vcc", "rb", "re", "rc", "beta", "vbe"),
+}
+
+POSITIVE_FIELDS = ("vcc", "r1", "r2", "rc", "re", "rb", "beta")
 
 
 def parse_form(form):
@@ -41,10 +57,16 @@ def parse_form(form):
     ``values`` holds only the fields that survived validation. ``errors`` maps
     a field name to a message the user can act on.
     """
-    values = {}
+    mode = (form.get("mode") or "divider").strip()
+    if mode not in MODE_FIELDS:
+        return {}, {"mode": "โหมดวงจรไม่ถูกต้อง"}
+
+    values = {"mode": mode}
     errors = {}
 
-    for name in FIELD_LABELS:
+    required = MODE_FIELDS[mode]
+
+    for name in required:
         raw = (form.get(name) or "").strip()
         if not raw:
             errors[name] = "กรุณากรอกค่านี้"
@@ -80,12 +102,20 @@ def parse_form(form):
 @app.get("/")
 def index():
     """Render the input form filled with the lab's sample values."""
+    mode = request.args.get("mode", "divider")
+    if mode not in MODE_FIELDS:
+        mode = "divider"
+    form = dict(DEFAULTS)
+    form["mode"] = mode
     return render_template(
         "index.html",
-        form=DEFAULTS,
+        form=form,
         errors={},
         result=None,
         labels=FIELD_LABELS,
+        modes=MODE_FIELDS,
+        mode_labels=MODE_LABELS,
+        selected_mode=mode,
     )
 
 
@@ -101,18 +131,42 @@ def calculate():
             errors=errors,
             result=None,
             labels=FIELD_LABELS,
+            modes=MODE_FIELDS,
+            mode_labels=MODE_LABELS,
+            selected_mode=values.get("mode", "divider"),
         )
 
+    mode = values["mode"]
     try:
-        result = dc_bias.operating_point(
-            vcc=values["vcc"],
-            r1_k=values["r1"],
-            r2_k=values["r2"],
-            rc_k=values["rc"],
-            re_k=values["re"],
-            beta=values["beta"],
-            vbe=values["vbe"],
-        )
+        if mode == "divider":
+            result = dc_bias.divider_bias(
+                vcc=values["vcc"],
+                r1_k=values["r1"],
+                r2_k=values["r2"],
+                rc_k=values["rc"],
+                re_k=values["re"],
+                beta=values["beta"],
+                vbe=values["vbe"],
+            )
+        elif mode == "fixed":
+            result = dc_bias.fixed_bias(
+                vcc=values["vcc"],
+                rb_k=values["rb"],
+                rc_k=values["rc"],
+                beta=values["beta"],
+                vbe=values["vbe"],
+            )
+        elif mode == "emitter":
+            result = dc_bias.emitter_bias(
+                vcc=values["vcc"],
+                rb_k=values["rb"],
+                re_k=values["re"],
+                rc_k=values["rc"],
+                beta=values["beta"],
+                vbe=values["vbe"],
+            )
+        else:
+            raise ValueError(f"โหมดวงจรไม่รองรับ: {mode}")
     except ValueError as exc:
         return render_template(
             "index.html",
@@ -121,6 +175,9 @@ def calculate():
             form_error=str(exc),
             result=None,
             labels=FIELD_LABELS,
+            modes=MODE_FIELDS,
+            mode_labels=MODE_LABELS,
+            selected_mode=mode,
         )
 
     return render_template(
@@ -128,5 +185,9 @@ def calculate():
         form=request.form,
         errors={},
         result=result,
+        mode=mode,
         labels=FIELD_LABELS,
+        modes=MODE_FIELDS,
+        mode_labels=MODE_LABELS,
+        selected_mode=mode,
     )
