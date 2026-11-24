@@ -1,4 +1,4 @@
-# Validation — BJT DC Bias Web App (Lab 03)
+# Validation — BJT DC Bias Web App (Lab 03 + Lab 04)
 
 เอกสารนี้บันทึกการตรวจสอบผลลัพธ์จริง ไม่ใช่การอธิบายว่าควรได้อะไร
 
@@ -166,7 +166,7 @@ VCE = 9.9318 − 1.899 = 8.0328 V
 คำสั่ง: `python -m unittest discover -s tests -v`
 
 ```
-Ran 32 tests in 0.041s
+Ran 66 tests in 0.08s
 
 OK
 ```
@@ -174,7 +174,8 @@ OK
 **การกระจายตัวของเทสต์**
 
 - ฝั่งคณิต (`test_dc_bias.py`): **12 เทสต์** — แบ่งเป็น BiasNetwork (2), Fixed Bias (3), Emitter Bias (3), Divider Bias (4)
-- ฝั่ง HTTP (`test_web.py`): **20 เทสต์** — แบ่งเป็น Index (6), Calculate (5), Validation (9)
+- ฝั่ง ngspice (`test_spice_engine.py`): **25 เทสต์** — netlist, subprocess, raw parser, version, simulate
+- ฝั่ง HTTP (`test_web.py`): **29 เทสต์** — Index (10), Calculate (10), Validation (9)
 
 ---
 
@@ -196,3 +197,86 @@ python -m flask --app app run --debug
 | เลือก Emitter + RB=1M, RE=1k | แสดง VB 1.737 V, VC 9.742 V, VCE 8.705 V, ACTIVE |
 | `RB = 0` ในโหมด Fixed | HTTP 200 มีข้อความ "ต้องมากกว่า 0" ใต้ช่อง RB |
 | โหมดไม่รู้จัก | HTTP 200 มีข้อความแจ้งโหมดไม่ถูกต้อง |
+
+---
+
+## 5. Lab 04 — ตรวจสอบการจำลองจริงด้วย ngspice (B1–B8)
+
+ค่าตัวอย่างที่ใช้ทุกกรณี: **VCC = 12 V, R1 = 100 kΩ, R2 = 22 kΩ, RC = 2.2 kΩ,
+RE = 1 kΩ, RL = 10 kΩ, Cin = Cout = 10 µF, amp = 10 mV, f = 1 kHz,
+β = 100, VBE = 0.70 V** หน่วยที่ข้ามเข้า `spice_engine` เป็นโวลต์/โอห์ม/ฟาราด
+(10 µF → `1e-05` ใน netlist, 10 mV → `0.01`)
+
+### B1 — เลือกวิธีวิเคราะห์ได้จากหน้าเว็บ
+
+`GET /` → HTTP 200 มี `<select name="analysis">` ทั้งสี่ค่า: `analytical`,
+`spice_op`, `spice_ac`, `spice_tran` เมื่อเลือก `spice_*` จะเห็นช่องเพิ่ม
+`RL`, `Cin`, `Cout`, amplitude และ frequency (ทดสอบจริงด้วย Flask test client)
+
+### B2 — ผลเชิงวิเคราะห์ของ Lab 03 ยังไม่เปลี่ยนแปลง
+
+Divider + `analytical` → VB 1.942 V, VC 9.294 V, VCE 8.052 V, `ACTIVE`
+(Fixed 0.700/9.514, Emitter 1.737/9.742) แสดงในบล็อกที่มีป้าย **analytical**
+แยกจากบล็อก **ngspice** เสมอ
+
+### B3 — เรียก solver แบบ batch จริง
+
+`run_ngspice()` เรียก `ngspice -b -o run.log -r run.raw circuit.cir` แบบ
+`subprocess.run([...])` (ไม่มี `shell=True`), `cwd` เป็น temp dir แยกต่อครั้ง,
+`timeout=60` วินาที ตรวจจาก log จริงว่ามี `No. of Data Rows` และไฟล์
+`run.raw` ถูกสร้างขึ้น เนื่องจาก ngspice ข้าม `.print` เมื่อมี `-r`
+('.print line ignored since rawfile was produced.') โปรแกรมจึงอ่านค่าจาก
+raw binary แทน — ไม่มีการเดาหรือสร้างข้อมูลขึ้นเอง
+
+### B4 — `.op` ผลจาก ngspice จริง
+
+```
+VB = 1.949112 V   VE = 1.289454 V   VC = 9.189410 V
+VCE = 7.899956 V  I(V1) = -1.378 mA
+```
+
+raw file มี 1 point / 8 variables (`v(vcc)`, `v(base)`, `v(collector)`,
+`v(emitter)`, `v(output)`, `v(input)`, `i(vin)`, `i(v1)`) ค่าต่างจากแบบ
+วิเคราะห์เล็กน้อย (VB 1.949 vs 1.942) ซึ่งเป็นที่คาดหมายเพราะแบบจำลอง
+ทรานซิสเตอร์ใน SPICE ไม่ใช่ β/VBE คงที่
+
+### B5 — `.ac` ผลจาก ngspice จริง
+
+301 จุด ความถี 1–1000 Hz (`dec 50`) ที่ 1 Hz ได้ gain 1.3926 V/V,
+phase −139.42° เกิดจาก `|v(collector)| / |v(input)|` และเฟสของสัญญาณ
+จริงจาก raw file กราฟ Plotly วาดจาก `spice.data['points']` โดยตรง
+(ตรวจในเบราว์เซอร์: `.js-plotly-plot` 1 อัน, `.trace` 1 เส้น, 301 จุด)
+Plotly ถูกเก็บไว้ใน `static/plotly.min.js` และโหลดใน `<head>` ก่อน inline script
+จึงไม่พึ่งพา CDN (CDN ถูกบล็อกในเบราว์เซอร์ทดสอบ → เคยทำให้กราฟว่าง)
+
+### B6 — `.tran` ผลจาก ngspice จริง
+
+1008 จุด ช่วงเวลา 0–0.01 s (10 คาบของ 1 kHz) step 10 µs
+(100 ตัวอย่างต่อคาบ — ไม่เกิด aliasing แบบ `.tran 0.001 1` เดิม)
+จุดแรก `vin = 0 V, vout = 11.769 V`; จุดสุดท้าย `vin ≈ 0, vout ≈ 11.77 V`
+(ขึ้นกับจุดหยุดของ solver เล็กน้อย)
+กราฟแสดงทั้ง V(IN) และ V(OUT) จากคอลัมน์ `v(input)` / `v(collector)`
+(ตรวจในเบราว์เซอร์: `.js-plotly-plot` 1 อัน, `.trace` 2 เส้น, 1008 จุด)
+
+### B7 — ความผิดพลาดต้องไม่ทิ้งกราฟเก่า
+
+- ไม่มี ngspice → `SpiceResult(success=False)` พร้อมข้อความ error
+- หมดเวลา / log ว่าง / parse พัง → `success=False`, `data=None`
+  (test `test_parse_failure_clears_success`)
+- `POST /calculate` ในสถานะ error → HTTP 200, แสดง **Error**,
+  ไม่มี `id="ac-plot"`/`id="tran-plot"` และไม่มีผล analytical ปนมา
+- ช่อง SPICE ที่ขาด/เป็นศูนย์ → field error HTTP 200 ค่าที่พิมพ์ยังอยู่
+
+### B8 — สรุปผลรันจริง
+
+```
+python -m unittest discover -s tests -v
+Ran 66 tests ... OK
+```
+
+ตรวจผ่านเบราว์เซอร์: `GET /`, เปลี่ยน `<select name="analysis">` → ไป `/?mode=divider&analysis=...`,
+submit `.op`/`.ac`/`.tran` กับ ngspice จริง ได้ HTTP 200 ทุกครั้ง
+แสดง `Engine: ngspice version ngspice-47` (อ่านจาก header ของ `run.raw`
+เพราะ `ngspice --version` ไม่พิมพ์อะไรบน MSYS2 build) มีกราฟจากข้อมูลจำลองจริง
+(AC 1 trace / 301 จุด, TRAN 2 traces / 1008 จุด) ไม่มี console error หรือ Traceback
+

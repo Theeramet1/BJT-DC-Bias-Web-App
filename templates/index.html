@@ -3,18 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BJT DC Bias Calculator — Lab 03</title>
+  <title>BJT Bias &amp; SPICE Simulator — Lab 04</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='plotly.min.js') }}"></script>
 </head>
 <body>
 <main class="card">
   <h1>เครื่องคำนวณ DC Bias — BJT Common Emitter</h1>
-  <p class="subtitle">เลือกวงจรไบอัส · แบบจำลอง Forward-Active (β และ V<sub>BE</sub> คงที่)</p>
+  <p class="subtitle">เลือกวงจรไบอัสและวิธีวิเคราะห์ · ผลคำนวณ (Lab 03) หรือจำลองจริงด้วย ngspice (Lab 04)</p>
 
-  <form method="post" action="{{ url_for('calculate') }}" novalidate>
+  <form id="bias-form" method="post" action="{{ url_for('calculate') }}" novalidate>
     <div class="field">
       <label for="mode">วงจรไบอัส</label>
-      <select id="mode" name="mode" onchange="this.form.submit()">
+      <select id="mode" name="mode"
+              onchange="navigateTo('mode', this.value, 'analysis')">
         {% for mode_key in modes %}
         <option value="{{ mode_key }}" {% if mode_key == selected_mode %}selected{% endif %}>
           {{ mode_labels[mode_key] }}
@@ -24,8 +26,23 @@
       {% if errors.get("mode") %}<p class="field-error">{{ errors["mode"] }}</p>{% endif %}
     </div>
 
+    <div class="field">
+      <label for="analysis">วิธีวิเคราะห์</label>
+      <select id="analysis" name="analysis"
+              onchange="navigateTo('analysis', this.value, 'mode')">
+        {% for key, label in analysis_labels.items() %}
+        <option value="{{ key }}" {% if key == selected_analysis %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.get("analysis") %}<p class="field-error">{{ errors["analysis"] }}</p>{% endif %}
+    </div>
+
     <div class="fields">
-      {% for name in modes[selected_mode] %}
+      {% set field_names = modes[selected_mode] | list %}
+      {% if selected_analysis.startswith("spice_") and selected_mode == "divider" %}
+        {% set field_names = field_names + ["rl", "cin", "cout", "amplitude", "frequency"] %}
+      {% endif %}
+      {% for name in field_names %}
       {% set label = labels[name] %}
       <div class="field">
         <label for="{{ name }}">{{ label }}</label>
@@ -37,12 +54,13 @@
     </div>
 
     {% if form_error %}<p class="form-error">{{ form_error }}</p>{% endif %}
-    <button type="submit">Calculate DC Bias</button>
+    <button id="calculate-button" type="submit">Calculate DC Bias</button>
+    <p id="run-status" class="status" role="status" aria-live="polite">{% if spice %}{{ "Success" if spice.success else "Error" }}{% elif result %}Success{% endif %}</p>
   </form>
 
   {% if result %}
-  <section class="results">
-    <h2>DC Operating Point — {{ mode_labels[selected_mode] }}</h2>
+  <section class="results analytical">
+    <h2>DC Operating Point — {{ mode_labels[selected_mode] }} <span class="badge">analytical</span></h2>
 
     {% if result.warnings %}
     <ul class="warnings" role="alert">
@@ -66,21 +84,116 @@
     <p class="region">Operating Region: <strong>{{ result.region }}</strong></p>
   </section>
   {% endif %}
+
+  {% if spice %}
+  <section class="results spice">
+    <h2>{{ analysis_labels["spice_" ~ spice.analysis] }} <span class="badge">ngspice</span></h2>
+    <p>Engine: {{ spice.engine }} version {{ spice.engine_version }}</p>
+    <p class="status">Status: <strong>{{ "Success" if spice.success else "Error" }}</strong></p>
+
+    {% if not spice.success %}
+    <p class="form-error" role="alert">ngspice ไม่สามารถทำการวิเคราะห์ได้: {{ spice.error }}</p>
+    {% endif %}
+
+    {% if spice.success and spice.analysis == "op" and spice.data %}
+    <dl class="readings">
+      <div><dt>VB (Base)</dt><dd>{{ '%.3f'|format(spice.data['node_voltages']['base']) }} V</dd></div>
+      <div><dt>VE (Emitter)</dt><dd>{{ '%.3f'|format(spice.data['node_voltages']['emitter']) }} V</dd></div>
+      <div><dt>VC (Collector)</dt><dd>{{ '%.3f'|format(spice.data['node_voltages']['collector']) }} V</dd></div>
+      <div><dt>VCE</dt><dd>{{ '%.3f'|format(spice.data['vce']) }} V</dd></div>
+      {% if spice.data.get('ic') is not none %}
+      <div><dt>IC</dt><dd>{{ '%.3f'|format(spice.data['ic'] * 1000) }} mA</dd></div>
+      {% endif %}
+      {% if spice.data.get('ie') is not none %}
+      <div><dt>IE</dt><dd>{{ '%.3f'|format(spice.data['ie'] * 1000) }} mA</dd></div>
+      {% endif %}
+      {% if spice.data.get('ib') is not none %}
+      <div><dt>IB</dt><dd>{{ '%.3f'|format(spice.data['ib'] * 1e6) }} µA</dd></div>
+      {% endif %}
+      {% if spice.data.get('vbe') is not none %}
+      <div><dt>VBE</dt><dd>{{ '%.3f'|format(spice.data['vbe']) }} V</dd></div>
+      {% endif %}
+      {% if spice.data.get('i_v1') is not none %}
+      <div><dt>I(V1)</dt><dd>{{ '%.3f'|format(spice.data['i_v1'] * 1000) }} mA</dd></div>
+      {% endif %}
+    </dl>
+    {% endif %}
+
+    {% if spice.success and spice.analysis == "ac" and spice.data %}
+    <div class="chart">
+      <h3>Frequency Response — ngspice .ac</h3>
+      <div id="ac-plot"></div>
+      <script>
+        var acPoints = {{ spice.data['points'] | tojson }};
+        if (window.Plotly) {
+          Plotly.newPlot('ac-plot', [{
+            x: acPoints.map(function (p) { return p.frequency_hz; }),
+            y: acPoints.map(function (p) { return p.gain_magnitude; }),
+            type: 'scatter',
+            mode: 'lines'
+          }], {
+            title: 'Voltage gain vs frequency (ngspice .ac)',
+            xaxis: { title: 'Frequency [Hz]', type: 'log' },
+            yaxis: { title: 'Gain [V/V]' }
+          });
+        }
+      </script>
+    </div>
+    {% endif %}
+
+    {% if spice.success and spice.analysis == "tran" and spice.data %}
+    <div class="chart">
+      <h3>Transient Response — ngspice .tran</h3>
+      <div id="tran-plot"></div>
+      <script>
+        var tranPoints = {{ spice.data['points'] | tojson }};
+        if (window.Plotly) {
+          Plotly.newPlot('tran-plot', [
+            {
+              x: tranPoints.map(function (p) { return p.time_s; }),
+              y: tranPoints.map(function (p) { return p.vout_v; }),
+              type: 'scatter',
+              mode: 'lines',
+              name: 'V(OUT)'
+            },
+            {
+              x: tranPoints.map(function (p) { return p.time_s; }),
+              y: tranPoints.map(function (p) { return p.vin_v; }),
+              type: 'scatter',
+              mode: 'lines',
+              name: 'V(IN)'
+            }
+          ], {
+            title: 'Transient input/output (ngspice .tran)',
+            xaxis: { title: 'Time [s]' },
+            yaxis: { title: 'Voltage [V]' }
+          });
+        }
+      </script>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
 </main>
 
 <script>
-  // Keep the correct mode selected after a page reload with errors
-  document.addEventListener('DOMContentLoaded', function () {
-    var select = document.getElementById('mode');
-    if (select) {
-      var stored = sessionStorage.getItem('bias_mode');
-      if (stored) {
-        select.value = stored;
-      }
-      select.addEventListener('change', function () {
-        sessionStorage.setItem('bias_mode', select.value);
-      });
-    }
+  // Changing a selector reloads the form via GET with the new choice so that
+  // only the fields relevant to that mode/analysis are shown.
+  function navigateTo(changed, value, otherId) {
+    var other = document.getElementById(otherId);
+    var mode = changed === 'mode' ? value : (other ? other.value : 'divider');
+    var analysis = changed === 'analysis' ? value : (other ? other.value : 'analytical');
+    window.location.href = '/?mode=' + encodeURIComponent(mode) +
+      '&analysis=' + encodeURIComponent(analysis);
+  }
+
+  // The request is synchronous; show an honest Running state while it is in
+  // flight. The reloaded page renders the final status from the Python result.
+  document.getElementById('bias-form').addEventListener('submit', function () {
+    var status = document.getElementById('run-status');
+    var button = document.getElementById('calculate-button');
+    if (status) { status.textContent = 'Running…'; }
+    if (button) { button.disabled = true; }
   });
 </script>
 </body>
